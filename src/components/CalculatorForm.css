@@ -1,0 +1,113 @@
+/* ... (이전 스타일은 동일) ... */
+
+.calculator-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    max-width: 33%; /* 폼 너비를 1/3로 제한 */
+    margin: 0 auto;
+    padding: 2.5rem;
+    border-radius: 15px;
+    background-color: #f5f5f5;
+    box-shadow:
+      10px 10px 20px #d1d9e6,
+      -10px -10px 20px #fff;
+  }
+  
+  .calculator-form .form-row {
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  
+  .calculator-form .form-group {
+    display: flex;
+    flex-direction: column;
+    flex: 0 1 calc(50% - 0.5rem); /* 2열로 배치, gap 고려 */
+    min-width: 100px; /*  최소 너비 */
+  }
+  
+  /* 가로, 폭, 높이 입력 필드에 적용할 small 스타일 */
+  .calculator-form .form-group.small {
+    flex: 0 1 calc(33.33% - 0.66rem); /* 3열로 배치, gap 고려 */
+    min-width: 60px; /* 최소 너비 조정 */
+  }
+  
+  .calculator-form label {
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: #222;
+  }
+  
+  .calculator-form .input-field,
+  .calculator-form .select-field {
+    padding: 0.75rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    background-color: #f5f5f5;
+    box-shadow:
+      inset 2px 2px 5px #d1d9e6,
+      inset -2px -2px 5px #fff;
+    transition: box-shadow 0.3s ease;
+    width: 100%;
+    /* max-width: 200px;  // 이 부분 제거 */
+    box-sizing: border-box;
+  }
+  
+  .calculator-form .input-field:focus,
+  .calculator-form .select-field:focus {
+    outline: none;
+    box-shadow:
+      inset 2px 2px 5px #d1d9e6,
+      inset -2px -2px 5px #fff,
+      0 0 0 2px #79a7d3;
+  }
+  
+  .calculator-form .submit-button {
+    background-color: #79a7d3;
+    color: #fff;
+    padding: 1rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow:
+      5px 5px 10px #d1d9e6,
+      -5px -5px 10px #fff;
+    transition: all 0.3s ease;
+  }
+  
+  .calculator-form .submit-button:hover {
+    background-color: #4d88c7;
+    box-shadow:
+      3px 3px 8px #d1d9e6,
+      -3px -3px 8px #fff;
+  }
+  
+  .calculator-form .submit-button:active {
+    box-shadow:
+      inset 2px 2px 5px #d1d9e6,
+      inset -2px -2px 5px #fff;
+  }
+  
+  /* 반응형 스타일 */
+  @media (max-width: 600px) {
+    .calculator-form {
+      max-width: 95%;
+      padding: 1.5rem;
+    }
+  
+    .calculator-form .form-row {
+      flex-direction: column; /* 작은 화면에서는 세로 배열 */
+    }
+  
+    .calculator-form .form-group,
+    .calculator-form .form-group.small {
+      flex: 0 1 100%; /* 작은 화면에서는 전체 너비 차지 */
+      min-width: auto; /* 작은 너비 재설정 */
+    }
+  }
