@@ -1,30 +1,44 @@
-import React, { useState } from "react";
-import CalculatorForm from "./components/CalculatorForm";
-import Result from "./components/Result";
+import React, { useState } from 'react';
+import { Canvas } from '@react-three/fiber';
+import { OrbitControls } from '@react-three/drei';
+import CalculatorForm from './CalculatorForm';
+import Box from './Box'; // Box 컴포넌트 import
 
 function App() {
   const [estimate, setEstimate] = useState(0);
-  const [width, setWidth] = useState(0); // 가로 상태
-  const [depth, setDepth] = useState(0); // 세로 상태
-  const [height, setHeight] = useState(0); // 높이 상태
-  const [materialType, setMaterialType] = useState(""); // 재질 상태
+  const [width, setWidth] = useState(4); // 초기값 설정
+  const [depth, setDepth] = useState(4); // 초기값 설정
+  const [height, setHeight] = useState(2); // 초기값 설정
+  const [materialType, setMaterialType] = useState('');
 
   return (
-    <div className="App">
-      <CalculatorForm
-        setEstimate={setEstimate}
-        setWidth={setWidth} // 가로 설정 함수 전달
-        setDepth={setDepth} // 세로 설정 함수 전달
-        setHeight={setHeight} // 높이 설정 함수 전달
-        setMaterialType={setMaterialType} // 재질 설정 함수 전달
-      />
-      <Result
-        estimate={estimate}
-        width={width} // 가로 값 전달
-        depth={depth} // 세로 값 전달
-        height={height} // 높이 값 전달
-        materialType={materialType} // 재질 값 전달
-      />
+    <div style={{ display: 'flex' }}>
+      <div style={{ width: '50%' }}>
+        <Canvas camera={{ position: [0, 0, 6] }}>
+          <ambientLight intensity={0.5} />
+          <pointLight position={[10, 10, 10]} castShadow />
+          <Box
+            dimensions={{ width, depth, height }}
+            materialType={materialType}
+            width={width}
+            depth={depth}
+            height={height}
+          />
+          <OrbitControls />
+        </Canvas>
+      </div>
+      <div style={{ width: '50%', padding: '20px' }}>
+        <CalculatorForm
+          setEstimate={setEstimate}
+          setWidth={setWidth}
+          setDepth={setDepth}
+          setHeight={setHeight}
+          setMaterialType={setMaterialType}
+        />
+        <div>
+          <h3>견적: {estimate}</h3>
+        </div>
+      </div>
     </div>
   );
 }
