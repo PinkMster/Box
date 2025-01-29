@@ -54,6 +54,29 @@ function CalculatorForm({
 
   const [materialDimensions, setMaterialDimensions] = useState({ width: 0, height: 0 });
 
+  const PRICE_TABLE = [
+    { size: "46전지", material: "KRAFT", price: 460000 },
+    { size: "46전지", material: "BLACK", price: 550000 },
+    { size: "46전지", material: "WHITE", price: 300000 },
+    { size: "하드롱", material: "WHITE", price: 370000 },
+    { size: "국전지", material: "WHITE", price: 210000 }
+  ];
+  
+  // calculateMaterialCost 함수 추가
+  const calculateMaterialCost = (materialType, materialSize, quantity) => {
+    if (materialType === "값이 없음") return 0;
+    
+    // 가격 찾기
+    const matchingRow = PRICE_TABLE.find(
+      row => row.material === materialType && row.size === materialSize
+    );
+    
+    const basePrice = matchingRow ? matchingRow.price : "값이없음";
+    if (basePrice === "값이없음") return 0;
+    
+    return basePrice * quantity;
+  };
+
     // 원단 크기 찾기 함수
     const findMaterialSize = (materialSize) => {
       if (!materialSize || !MATERIAL_SIZES[materialSize]) {
@@ -110,20 +133,12 @@ function CalculatorForm({
 
     // 제작수량 계산 및 업데이트
     if (['quantity', 'cutCount', 'materialCount'].includes(name)) {
-      const newProductionQuantity = calculateProductionQuantity(
-        name === 'quantity' ? value : inputData.quantity,
-        name === 'cutCount' ? value : inputData.cutCount,
-        name === 'materialCount' ? value : inputData.materialCount
-      );
+      const newProductionQuantity = calculateProductionQuantity();
       setProductionQuantity(newProductionQuantity);
     }
   };
 
-  /*const calculateProductionQuantity = (quantity, cutCount, materialCount) => {
-    return Number(quantity) * Number(cutCount) * Number(materialCount) * 500;
-  };*/
-
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
   
     if (!inputData.materialType) {
@@ -135,33 +150,33 @@ function CalculatorForm({
       return;
     }
   
-    try {
-      const productionQuantity = 
-        Number(inputData.quantity) * 
-        Number(inputData.cutCount) * 
-        Number(inputData.materialCount) * 
-        500;
+    const productionQuantity = 
+      Number(inputData.quantity) * 
+      Number(inputData.cutCount) * 
+      Number(inputData.materialCount) * 
+      500;
   
-      const requestData = {
-        ...inputData,
-        productionQuantity: productionQuantity
-      };
+    setProductionQuantity(productionQuantity);
+    
+    const materialCost = calculateMaterialCost(
+      inputData.materialType,
+      inputData.materialSize,
+      inputData.quantity
+    );
+    
+    const estimate = Math.round(
+      ((materialCost) / productionQuantity) * 1.4
+    );
   
-      const response = await axios.post("/api/calculate", requestData);
-      setEstimate(response.data.estimate);
-      setProductionQuantity(productionQuantity);
-    } catch (error) {
-      console.error("Error calculating estimate:", error);
-      alert("견적 계산 중 오류가 발생했습니다.");
-    }
+    setEstimate(estimate);
   };
 
- const calculateProductionQuantity = () => {
-    return Number(inputData.quantity) * 
+  const calculateProductionQuantity = () => {
+    const result = Number(inputData.quantity) * 
            Number(inputData.cutCount) * 
            Number(inputData.materialCount) * 
            500;
-           return isFinite(result) ? result : 0;
+    return isFinite(result) ? result : 0;
   };
 
   return (
