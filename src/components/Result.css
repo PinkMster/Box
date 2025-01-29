@@ -1,0 +1,52 @@
+.result-container {
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    margin: 20px 0;
+    background: #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  
+  .result-container h2 {
+    margin-bottom: 20px;
+    color: #333;
+    font-size: 1.5rem;
+  }
+  
+  .cost-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .cost-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+  }
+  
+  .cost-item span:first-child {
+    font-weight: 500;
+    color: #555;
+  }
+  
+  .cost-item span:last-child {
+    font-family: monospace;
+    font-size: 1.1em;
+  }
+  
+  .final-price {
+    display: flex;
+    justify-content: space-between;
+    padding: 15px 0;
+    margin-top: 10px;
+    border-top: 2px solid #333;
+    font-weight: bold;
+    font-size: 1.2em;
+  }
+  
+  .final-price span:last-child {
+    font-family: monospace;
+    color: #2c5282;
+  }

@@ -5,6 +5,8 @@ import PropTypes from 'prop-types';
 function Box({ dimensions, ...props }) {
   const group = useRef();
   const { nodes, materials, animations } = useGLTF('/models/box.glb');
+  console.log("nodes:", nodes); // nodes 객체 확인
+  console.log("materials:", materials); // materials 객체 확인
   const { actions } = useAnimations(animations, group);
   const { width, depth, height } = dimensions;
 
