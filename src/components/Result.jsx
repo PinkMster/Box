@@ -109,13 +109,13 @@ const calculateFinalUnitPrice = () => {
   const bondingCost = calculateBondingCost();
   const filmCost = calculateFilmCost();
 
-  // 분모가 0이 아닌지 확인
+  // =IF(F7="값이 없음","0",((D9+D11+D12)/F4)+(D13/F4)+(D10/F4)+(D14/F4))*1.4)
   if (productionQuantity > 0) {
     const unitPrice = (
-      ((materialCost + coatingCost + thomsonCost) / productionQuantity) +
-      (bondingCost / productionQuantity) +
-      (printCost / productionQuantity) +
-      (filmCost / productionQuantity)
+      ((materialCost + coatingCost + thomsonCost) / productionQuantity) +  // (D9+D11+D12)/F4
+      (bondingCost / productionQuantity) +                                 // D13/F4
+      (printCost / productionQuantity) +                                   // D10/F4
+      (filmCost / productionQuantity)                                      // D14/F4
     ) * 1.4;
 
     return Math.round(unitPrice);
