@@ -23,7 +23,7 @@ function Box({ dimensions, ...props }) {
         receiveShadow
         geometry={nodes.Cube.geometry}
         material={materials.Material}
-        scale={[width / 100, height / 100, depth / 100]}
+        scale={[width / 10, height / 10, depth / 10]}
       />
     </group>
   );

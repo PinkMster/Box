@@ -56,7 +56,7 @@ function CalculatorForm({
 
   const PRICE_TABLE = [
     { size: "46전지", material: "KRAFT", price: 460000 },
-    { size: "46전지", material: "BLACK", price: 550000 },
+    { size: "46전지", material: "BLACK", price: 300000 },
     { size: "46전지", material: "WHITE", price: 300000 },
     { size: "하드롱", material: "WHITE", price: 370000 },
     { size: "국전지", material: "WHITE", price: 210000 }
