@@ -1,73 +1,68 @@
 .app-container {
-  display: flex;
-  gap: 20px;
-  padding: 15px;
-  max-width: 1800px;
+  padding: 20px;
+  max-width: 1200px;
   margin: 0 auto;
-  height: 100vh;
 }
 
-.left-section {
-  flex: 0 0 800px;
-  padding: 15px;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  overflow-y: auto;
-  max-height: calc(90vh);
-}
-
-.right-section {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  max-width: 400px;
-}
-
-.box-model-section {
-  flex: 0 0 250px;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  overflow: hidden;
-}
-
-.result-section {
-  flex: 0 0 auto; 
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  padding: 15px;
-}
-.result-container h2 {
-  font-size: 1.2rem;
-  margin-bottom: 15px;
-}
-
-.cost-item {
-  padding: 6px 0;
-}
-
-.final-price {
-  padding: 10px 0;
-  margin-top: 8px;
-}
-
-@media (max-width: 1200px) {
+/* Desktop styles */
+@media (min-width: 768px) {
   .app-container {
-    flex-direction: column;
-    height: auto;
-  }
-
-  .left-section {
-    flex: none;
-    width: 100%;
-    max-height: none;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
   }
 
   .right-section {
-    width: 100%;
-    max-width: none;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
   }
+
+  .box-model-section {
+    height: 400px;
+  }
+
+  .result-section {
+    flex-grow: 1;
+  }
+
+  .left-section {
+    height: 100%;
+  }
+}
+
+/* Mobile styles */
+@media (max-width: 767px) {
+  .app-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .box-model-section,
+  .result-section {
+    height: 300px;
+    margin-top: 20px;
+  }
+
+  .right-section {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+}
+
+/* Common styles */
+.box-model-section,
+.result-section {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
 }
