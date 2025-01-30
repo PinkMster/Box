@@ -47,7 +47,7 @@
 
   .box-model-section,
   .result-section {
-    height: 300px;
+    height: auto;
     margin-top: 20px;
   }
 
