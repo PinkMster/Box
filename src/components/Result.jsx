@@ -5,7 +5,7 @@ import './Result.css';
 // 가격 테이블 데이터
 const PRICE_TABLE = [
   { size: "46전지", material: "KRAFT", price: 460000 },    // 크라프트 KLB337g
-  { size: "46전지", material: "BLACK", price: 300000 },    // 흑지350g
+  { size: "46전지", material: "BLACK", price: 550000 },    // 흑지350g
   { size: "46전지", material: "WHITE", price: 300000 },    // ab라이트270g
   { size: "하드롱", material: "WHITE", price: 370000 },    // ab라이트270g
   { size: "국전지", material: "WHITE", price: 210000 }     // ab라이트270g
