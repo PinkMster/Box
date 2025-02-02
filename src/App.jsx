@@ -37,14 +37,8 @@ function App() {
           setTestPrint={setTestPrint}
           setMaterialCount={setMaterialCount}
         />
-      </div>
-      <div className="right-section">
-        <CardboardBoxPreview 
-          dimensions={{ width, height, depth }}
-          materialType={materialType}
-        />
-        <div className="result-section">
-          <Result
+
+        <Result
             materialType={materialType}
             materialSize={materialSize}
             quantity={quantity}
@@ -55,7 +49,12 @@ function App() {
             testPrint={testPrint}
             materialCount={materialCount}
           />
-        </div>
+      </div>
+      <div className="right-section">
+        <CardboardBoxPreview 
+          dimensions={{ width, height, depth }}
+          materialType={materialType}
+        />
       </div>
     </div>
   );
