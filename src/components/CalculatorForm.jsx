@@ -35,7 +35,8 @@ function CalculatorForm({
   setBonding,
   setPrintColor,
   setProductionQuantity,
-  setTestPrint
+  setTestPrint,
+  setMaterialCount
 }) {
   const [inputData, setInputData] = useState({
     width: 0,
@@ -54,36 +55,13 @@ function CalculatorForm({
 
   const [materialDimensions, setMaterialDimensions] = useState({ width: 0, height: 0 });
 
-  const PRICE_TABLE = [
-    { size: "46전지", material: "KRAFT", price: 460000 },
-    { size: "46전지", material: "BLACK", price: 550000 },
-    { size: "46전지", material: "WHITE", price: 300000 },
-    { size: "하드롱", material: "WHITE", price: 370000 },
-    { size: "국전지", material: "WHITE", price: 210000 }
-  ];
-  
-  // calculateMaterialCost 함수 추가
-  const calculateMaterialCost = (materialType, materialSize, quantity) => {
-    if (materialType === "값이 없음") return 0;
-    
-    // 가격 찾기
-    const matchingRow = PRICE_TABLE.find(
-      row => row.material === materialType && row.size === materialSize
-    );
-    
-    const basePrice = matchingRow ? matchingRow.price : "값이없음";
-    if (basePrice === "값이없음") return 0;
-    
-    return basePrice * quantity;
+  // 원단 크기 찾기 함수
+  const findMaterialSize = (materialSize) => {
+    if (!materialSize || !MATERIAL_SIZES[materialSize]) {
+      return { width: 0, height: 0 };
+    }
+    return MATERIAL_SIZES[materialSize][0];
   };
-
-    // 원단 크기 찾기 함수
-    const findMaterialSize = (materialSize) => {
-      if (!materialSize || !MATERIAL_SIZES[materialSize]) {
-        return { width: 0, height: 0 };
-      }
-      return MATERIAL_SIZES[materialSize][0]; // 첫 번째 크기 반환
-    };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -97,6 +75,9 @@ function CalculatorForm({
 
     // 상위 컴포넌트 상태 업데이트
     switch (name) {
+      case 'materialCount':
+        setMaterialCount(Number(value));
+        break;
       case 'quantity':
         setQuantity(Number(value));
         break;
@@ -115,11 +96,9 @@ function CalculatorForm({
       case 'materialType':
         setMaterialType(value);
         break;
-        case 'materialSize':
-          setMaterialSize(value)
-          const newSize = findMaterialSize(value);
-          setMaterialDimensions(newSize);
-          break;
+      case 'materialSize':
+        setMaterialSize(value);
+        break;
       case 'width':
         setWidth(Number(value));
         break;
@@ -132,9 +111,40 @@ function CalculatorForm({
     }
 
     // 제작수량 계산 및 업데이트
-    if (['quantity', 'cutCount', 'materialCount'].includes(name)) {
-      const newProductionQuantity = calculateProductionQuantity();
+    const newProductionQuantity = Number(value) * 
+      Number(inputData.cutCount) * 
+      (name === 'materialCount' ? Number(value) : Number(inputData.materialCount)) * 
+      500;
+
+    if (isFinite(newProductionQuantity)) {
       setProductionQuantity(newProductionQuantity);
+    }
+
+    // 실시간으로 견적 계산
+    calculateEstimate(name, value);
+  };
+
+  // 견적 계산 함수를 별도로 분리
+  const calculateEstimate = (changedName, changedValue) => {
+    // 현재 상태와 변경된 값을 합쳐서 계산
+    const currentData = {
+      ...inputData,
+      [changedName]: changedValue
+    };
+
+    if (!currentData.materialType || !currentData.materialSize) {
+      return;
+    }
+
+    const productionQuantity = 
+      Number(currentData.quantity) * 
+      Number(currentData.cutCount) * 
+      Number(currentData.materialCount) * 
+      500;
+
+    if (productionQuantity > 0) {
+      // 견적 업데이트
+      setProductionQuantity(productionQuantity);
     }
   };
 
@@ -158,14 +168,8 @@ function CalculatorForm({
   
     setProductionQuantity(productionQuantity);
     
-    const materialCost = calculateMaterialCost(
-      inputData.materialType,
-      inputData.materialSize,
-      inputData.quantity
-    );
-    
     const estimate = Math.round(
-      ((materialCost) / productionQuantity) * 1.4
+      ((calculateMaterialCost()) / productionQuantity) * 1.4
     );
   
     setEstimate(estimate);
@@ -349,9 +353,8 @@ function CalculatorForm({
         </div>
       </div>
 
-      {/* 원단 크기 표시 */}{/* 제작수량 표시 */}
       <div className="form-row">
-      <div className="form-group">
+        <div className="form-group">
           <label>원단 크기:</label>
           <input
             type="text"
@@ -372,10 +375,6 @@ function CalculatorForm({
           />
         </div>
       </div>
-
-      <button type="submit" className="submit-button">
-        견적 계산
-      </button>
     </form>
   );
 }
@@ -392,7 +391,8 @@ CalculatorForm.propTypes = {
   setBonding: PropTypes.func.isRequired,
   setPrintColor: PropTypes.func.isRequired,
   setProductionQuantity: PropTypes.func.isRequired,
-  setTestPrint: PropTypes.func.isRequired
+  setTestPrint: PropTypes.func.isRequired,
+  setMaterialCount: PropTypes.func.isRequired
 };
 
 export default CalculatorForm;

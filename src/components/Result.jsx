@@ -19,25 +19,14 @@ function Result({
   bonding,
   printColor,
   productionQuantity,
-  testPrint
+  testPrint,
+  materialCount
 }) {
   // INDEX/MATCH 함수 구현
   const calculatePrice = (materialType, materialSize) => {
-    console.log('calculatePrice inputs:', { materialType, materialSize });
-    console.log('PRICE_TABLE:', PRICE_TABLE);
-    
     try {
       const matchingRow = PRICE_TABLE.find(
-        row => {
-          console.log('Comparing:', {
-            tableSize: row.size,
-            tableMaterial: row.material,
-            inputSize: materialSize,
-            inputMaterial: materialType,
-            isMatch: row.material === materialType && row.size === materialSize
-          });
-          return row.material === materialType && row.size === materialSize;
-        }
+        row => row.material === materialType && row.size === materialSize
       );
       return matchingRow ? matchingRow.price : "값이없음";
     } catch (error) {
@@ -45,25 +34,29 @@ function Result({
     }
   };
   
-  // 원단비 계산도 로깅 추가
+  // 원단비 계산
   const calculateMaterialCost = () => {
-    console.log('calculateMaterialCost inputs:', {
-      materialType,
-      materialSize,
-      quantity
-    });
+    if (materialType === "값이 없음" || !materialType) return 0;
     
-    if (materialType === "값이 없음") return 0;
     const basePrice = calculatePrice(materialType, materialSize);
-    console.log('basePrice:', basePrice);
-    
-    if (basePrice === "값이없음") return 0;
-    const cost = basePrice * quantity;
-    console.log('final cost:', cost);
-    return cost;
+    if (basePrice === "값이없음" || typeof basePrice !== 'number') return 0;
+
+    // quantity와 materialCount를 명시적으로 숫자로 변환
+    const validQuantity = Number(quantity) || 0;
+    const validMaterialCount = Number(materialCount) || 0;
+
+    console.log('Material Cost Calculation:', {
+      basePrice,
+      validQuantity,
+      validMaterialCount
+    });
+
+    // 연수와 판수를 고려한 가격 계산
+    const cost = basePrice * validMaterialCount * validQuantity;
+    return isNaN(cost) ? 0 : cost;
   };
 
-  // 인쇄비 계산 (=IF(F7="값이 없음","0",IF(OR(G7=1,G7=2),"60,000",IF(OR(G7=3,G7=4),"80,000","0"))))
+  // 인쇄비 계산
   const calculatePrintCost = () => {
     if (materialType === "값이 없음") return 0;
     if (["1", "2"].includes(printColor)) return 60000;
@@ -71,19 +64,19 @@ function Result({
     return 0;
   };
 
-  // 코팅비 계산 (=IF(F7="값이 없음","0",IF(H4="O","70,000","0")))
+  // 코팅비 계산
   const calculateCoatingCost = () => {
     if (materialType === "값이 없음") return 0;
     return coating === "O" ? 70000 : 0;
   };
 
-  // 톰슨비 계산 (=IF(F7="값이 없음","0",IF(H7="O","80,000","50,000")))
+  // 톰슨비 계산
   const calculateThomsonCost = () => {
     if (materialType === "값이 없음") return 0;
     return testPrint === "O" ? 80000 : 50000;
   };
 
-  // 접착비 계산 (=IF(OR(F7="값이 없음",G4="없음"),"0",IF(G4="단면",MAX(F4*10,30000),MAX(F4*15,45000))))
+  // 접착비 계산
   const calculateBondingCost = () => {
     if (materialType === "값이 없음" || bonding === "0") return 0;
     if (bonding === "1") { // 단면
@@ -92,36 +85,46 @@ function Result({
     return Math.max(productionQuantity * 15, 45000); // 삼면
   };
 
-  // 필름비 계산 (=IF(F7="값이 없음","0",G7*15000))
+  // 필름비 계산
   const calculateFilmCost = () => {
     if (materialType === "값이 없음") return 0;
     return Number(printColor) * 15000;
   };
 
-// 최종 견적 단가 계산
-const calculateFinalUnitPrice = () => {
-  if (materialType === "값이 없음" || productionQuantity === 0) return 0;
-  
-  const materialCost = calculateMaterialCost();
-  const printCost = calculatePrintCost();
-  const coatingCost = calculateCoatingCost();
-  const thomsonCost = calculateThomsonCost();
-  const bondingCost = calculateBondingCost();
-  const filmCost = calculateFilmCost();
+  // 최종 견적 단가 계산
+  const calculateFinalUnitPrice = () => {
+    if (materialType === "값이 없음" || productionQuantity === 0) return 0;
+    
+    const materialCost = calculateMaterialCost();
+    const printCost = calculatePrintCost();
+    const coatingCost = calculateCoatingCost();
+    const thomsonCost = calculateThomsonCost();
+    const bondingCost = calculateBondingCost();
+    const filmCost = calculateFilmCost();
 
-  // =IF(F7="값이 없음","0",((D9+D11+D12)/F4)+(D13/F4)+(D10/F4)+(D14/F4))*1.4)
-  if (productionQuantity > 0) {
-    const unitPrice = (
-      ((materialCost + coatingCost + thomsonCost) / productionQuantity) +  // (D9+D11+D12)/F4
-      (bondingCost / productionQuantity) +                                 // D13/F4
-      (printCost / productionQuantity) +                                   // D10/F4
-      (filmCost / productionQuantity)                                      // D14/F4
-    ) * 1.4;
+    console.log('Final Cost Components:', {
+      materialCost,
+      printCost,
+      coatingCost,
+      thomsonCost,
+      bondingCost,
+      filmCost,
+      productionQuantity
+    });
 
-    return Math.round(unitPrice);
-  }
-  return 0;
-};
+    if (productionQuantity > 0) {
+      const unitPrice = (
+        ((materialCost + coatingCost + thomsonCost) / productionQuantity) +
+        (bondingCost / productionQuantity) +
+        (printCost / productionQuantity) +
+        (filmCost / productionQuantity)
+      ) * 1.4;
+
+      return Math.round(unitPrice);
+    }
+    return 0;
+  };
+
   return (
     <div className="result-container">
       <h2>견적 결과</h2>
@@ -162,12 +165,13 @@ const calculateFinalUnitPrice = () => {
 Result.propTypes = {
   materialType: PropTypes.string.isRequired,
   materialSize: PropTypes.string.isRequired,
-  quantity: PropTypes.number.isRequired,
+  quantity: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
   coating: PropTypes.string.isRequired,
   bonding: PropTypes.string.isRequired,
   printColor: PropTypes.string.isRequired,
   productionQuantity: PropTypes.number.isRequired,
-  testPrint: PropTypes.string.isRequired
+  testPrint: PropTypes.string.isRequired,
+  materialCount: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired
 };
 
 export default Result;
