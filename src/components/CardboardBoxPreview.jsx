@@ -1,212 +1,368 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
+import * as THREE from 'three';
 import PropTypes from 'prop-types';
 
-// 박스 도면 컴포넌트
-const BoxBlueprint = ({ width, height, depth }) => {
-  // 도면 스케일 계산
-  const scale = 0.3;
+const ImageEditor = ({ onImageChange, imageData }) => {
+  const inputRef = useRef(null);
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        onImageChange({
+          url: event.target.result,
+          rotation: 0,
+          scale: 1,
+          position: { x: 0, y: 0 },
+          panel: 'front'
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRotationChange = (e) => {
+    const newRotation = parseInt(e.target.value);
+    if (imageData) {
+      onImageChange({
+        ...imageData,
+        rotation: newRotation
+      });
+    }
+  };
+
+  const handleScaleChange = (e) => {
+    const newScale = parseFloat(e.target.value);
+    if (imageData) {
+      onImageChange({
+        ...imageData,
+        scale: newScale
+      });
+    }
+  };
+
+  return (
+    <div className="p-4 bg-gray-50 rounded-lg mb-4">
+      <div className="space-y-4">
+        <button
+          onClick={() => inputRef.current.click()}
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+        >
+          이미지 업로드
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleImageUpload}
+          className="hidden"
+        />
+        {imageData && (
+          <div className="flex items-center gap-4">
+            <div className="flex-1">
+              <label className="block text-sm mb-1">회전 ({imageData.rotation}°)</label>
+              <input
+                type="range"
+                min="0"
+                max="360"
+                value={imageData.rotation}
+                onChange={handleRotationChange}
+                className="w-full"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm mb-1">크기 ({imageData.scale}x)</label>
+              <input
+                type="range"
+                min="0.1"
+                max="2"
+                step="0.1"
+                value={imageData.scale}
+                onChange={handleScaleChange}
+                className="w-full"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const BoxBlueprint = ({ width, height, depth, imageData, onImageMove }) => {
+  const svgRef = useRef(null);
+  const isDragging = useRef(false);
+  const startPos = useRef({ x: 0, y: 0 });
+  const currentPanel = useRef(null);
+
+  const maxSize = Math.max(width, height * 3 + depth * 2);
+  const scale = Math.min(1, 500 / maxSize);
+  
   const w = width * scale;
   const h = height * scale;
   const d = depth * scale;
   
-  // 여백 계산 (톰슨칼 자국용)
-  const margin = Math.min(w, h, d) * 0.1;
-  const flapHeight = d * 0.8;
-  
-  // 전체 도면 크기 계산
-  const totalWidth = w + (d * 2) + (margin * 4);
-  const totalHeight = h + (d * 2) + (margin * 4);
+  const totalWidth = w + (d * 2) + 80;
+  const totalHeight = h * 3 + (d * 2) + 80;
 
-  // 톰슨칼 자국 패턴 생성
-  const createThompsonCut = (x1, y1, x2, y2) => {
-    const length = 5; // 자국 길이
-    const gap = 3; // 자국 간격
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    const count = Math.floor(distance / (length + gap));
-    let pattern = '';
+  const startX = 40;
+  const startY = 40;
+  const baseX = startX + d;
+  const baseY = startY + d;
 
-    for (let i = 0; i < count; i++) {
-      const startPercent = i * (length + gap) / distance;
-      const endPercent = (i * (length + gap) + length) / distance;
-      const startX = x1 + dx * startPercent;
-      const startY = y1 + dy * startPercent;
-      const endX = x1 + dx * endPercent;
-      const endY = y1 + dy * endPercent;
-      pattern += `M ${startX} ${startY} L ${endX} ${endY} `;
-    }
+  // 각 패널의 위치와 크기 정의
+  const panels = {
+    front: { x: baseX, y: baseY, width: w, height: h },
+    back: { x: baseX, y: baseY + h + d, width: w, height: h },
+    left: { x: startX, y: baseY, width: d, height: h },
+    right: { x: baseX + w, y: baseY, width: d, height: h },
+    top: { x: baseX, y: startY, width: w, height: d },
+    bottom: { x: baseX, y: baseY + h, width: w, height: d }
+  };
 
-    return pattern;
+  // 특정 좌표가 어느 패널 안에 있는지 확인하는 함수
+  const getPanelAtPosition = (x, y) => {
+    return Object.entries(panels).find(([_, panel]) => {
+      return x >= panel.x && 
+             x <= panel.x + panel.width && 
+             y >= panel.y && 
+             y <= panel.y + panel.height;
+    });
+  };
+
+  const handleMouseDown = (e) => {
+    if (!imageData) return;
+    
+    const svg = svgRef.current;
+    const pt = svg.createSVGPoint();
+    pt.x = e.clientX;
+    pt.y = e.clientY;
+    const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
+    
+    // 현재 위치의 패널 확인
+    const panelInfo = getPanelAtPosition(svgP.x, svgP.y);
+    if (!panelInfo) return;
+
+    const [panelName, panel] = panelInfo;
+    currentPanel.current = { name: panelName, ...panel };
+    
+    isDragging.current = true;
+    startPos.current = {
+      x: svgP.x - (imageData.position?.x || 0),
+      y: svgP.y - (imageData.position?.y || 0)
+    };
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDragging.current || !imageData || !currentPanel.current) return;
+
+    const svg = svgRef.current;
+    const pt = svg.createSVGPoint();
+    pt.x = e.clientX;
+    pt.y = e.clientY;
+    const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
+    
+    // 현재 마우스 위치의 패널 확인
+    const newPanelInfo = getPanelAtPosition(svgP.x, svgP.y);
+    if (!newPanelInfo) return;
+
+    const [newPanelName, newPanel] = newPanelInfo;
+    
+    // 패널 내에서의 상대 위치 계산
+    const relativeX = svgP.x - newPanel.x;
+    const relativeY = svgP.y - newPanel.y;
+
+    onImageMove({
+      x: relativeX,
+      y: relativeY,
+      panel: newPanelName
+    });
+  };
+
+  const handleMouseUp = () => {
+    isDragging.current = false;
+    currentPanel.current = null;
   };
 
   return (
     <div className="w-full h-full bg-white">
       <svg
+        ref={svgRef}
         viewBox={`0 0 ${totalWidth} ${totalHeight}`}
         className="w-full h-full"
         style={{ backgroundColor: 'white' }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
       >
+        {/* 각 패널에 대한 클리핑 패스 정의 */}
         <defs>
-          <pattern id="foldLine" patternUnits="userSpaceOnUse" width="8" height="1">
-            <line x1="0" y1="0" x2="4" y2="0" stroke="#6B7280" strokeWidth="0.5" />
-          </pattern>
+          {Object.entries(panels).map(([key, panel]) => (
+            <clipPath key={key} id={`boxClip-${key}`}>
+              <rect x={panel.x} y={panel.y} width={panel.width} height={panel.height} />
+            </clipPath>
+          ))}
         </defs>
-        
-        {/* 메인 박스 본체 */}
-        <g transform={`translate(${margin + d}, ${margin + d})`}>
-          {/* 중앙 패널 */}
-          <rect x="0" y="0" width={w} height={h} fill="none" stroke="#FF69B4" strokeWidth="1" />
-          
-          {/* 왼쪽 패널 */}
-          <path
-            d={`M 0 0 
-                h -${d} 
-                v ${h} 
-                h ${d}`}
-            fill="none" 
-            stroke="#FF69B4" 
-            strokeWidth="1"
-          />
-          
-          {/* 오른쪽 패널 */}
-          <path
-            d={`M ${w} 0 
-                h ${d} 
-                v ${h} 
-                h -${d}`}
-            fill="none" 
-            stroke="#FF69B4" 
-            strokeWidth="1"
-          />
-          
-          {/* 상단 플랩 */}
-          <path
-            d={`M 0 -${d} 
-                h ${w} 
-                l ${flapHeight} -${flapHeight} 
-                h -${w + 2 * flapHeight} 
-                l ${flapHeight} ${flapHeight}`}
-            fill="none"
-            stroke="#FF69B4"
-            strokeWidth="1"
-          />
-          
-          {/* 하단 플랩 */}
-          <path
-            d={`M 0 ${h} 
-                h ${w} 
-                l ${flapHeight} ${flapHeight} 
-                h -${w + 2 * flapHeight} 
-                l ${flapHeight} -${flapHeight}`}
-            fill="none"
-            stroke="#FF69B4"
-            strokeWidth="1"
-          />
-          
-          {/* 접힘선 */}
-          <line x1="0" y1="0" x2="0" y2={h} stroke="url(#foldLine)" />
-          <line x1={w} y1="0" x2={w} y2={h} stroke="url(#foldLine)" />
-          <line x1="0" y1="0" x2={w} y2="0" stroke="url(#foldLine)" />
-          <line x1="0" y1={h} x2={w} y2={h} stroke="url(#foldLine)" />
-          
-          {/* 톰슨칼 자국 */}
-          <path
-            d={createThompsonCut(-d, 0, -d, h)}
-            stroke="#FF69B4"
-            strokeWidth="0.5"
-            fill="none"
-          />
-          <path
-            d={createThompsonCut(w + d, 0, w + d, h)}
-            stroke="#FF69B4"
-            strokeWidth="0.5"
-            fill="none"
-          />
-          
-          {/* 치수 텍스트 */}
-          <text x={w/2} y={h/2} fill="#4B5563" fontSize={Math.min(w, h) * 0.1}>
-            앞면
-          </text>
-          <text x={w/2} y={-d/2} fill="#4B5563" fontSize={Math.min(w, h) * 0.1}>
-            윗면
-          </text>
-          <text x={w/2} y={h + d/2} fill="#4B5563" fontSize={Math.min(w, h) * 0.1}>
-            아랫면
-          </text>
+
+        {/* 이미지 렌더링 */}
+        {imageData?.url && imageData.panel && (
+          <g clipPath={`url(#boxClip-${imageData.panel})`}>
+            <image
+              href={imageData.url}
+              x={panels[imageData.panel].x + imageData.position.x}
+              y={panels[imageData.panel].y + imageData.position.y}
+              width={panels[imageData.panel].width}
+              height={panels[imageData.panel].height}
+              transform={`
+                rotate(${imageData.rotation || 0} 
+                  ${panels[imageData.panel].x + panels[imageData.panel].width/2} 
+                  ${panels[imageData.panel].y + panels[imageData.panel].height/2})
+                scale(${imageData.scale || 1})
+              `}
+              preserveAspectRatio="xMidYMid slice"
+            />
+          </g>
+        )}
+
+        {/* 박스 외곽선 */}
+        <rect x={baseX} y={baseY} width={w} height={h} fill="none" stroke="black" strokeWidth="1" />
+        <rect x={baseX} y={startY} width={w} height={d} fill="none" stroke="black" strokeWidth="1" />
+        <rect x={baseX} y={baseY + h} width={w} height={d} fill="none" stroke="black" strokeWidth="1" />
+        <rect x={startX} y={baseY} width={d} height={h} fill="none" stroke="black" strokeWidth="1" />
+        <rect x={baseX + w} y={baseY} width={d} height={h} fill="none" stroke="black" strokeWidth="1" />
+        <rect x={baseX} y={baseY + h + d} width={w} height={h} fill="none" stroke="black" strokeWidth="1" />
+
+        {/* 접는 선 */}
+        <g stroke="black" strokeDasharray="5,5" strokeWidth="0.5">
+          <line x1={baseX} y1={startY} x2={baseX} y2={baseY + h + d * 2} />
+          <line x1={baseX + w} y1={startY} x2={baseX + w} y2={baseY + h + d * 2} />
+          <line x1={startX} y1={baseY} x2={baseX + w + d} y2={baseY} />
+          <line x1={startX} y1={baseY + h} x2={baseX + w + d} y2={baseY + h} />
+          <line x1={baseX} y1={baseY + h + d} x2={baseX + w} y2={baseY + h + d} />
         </g>
       </svg>
     </div>
   );
 };
 
-// 3D 박스 모델 컴포넌트
-const BoxModel = ({ dimensions, material }) => {
-  const mesh = useRef();
+const BoxModel = ({ dimensions, material, imageData }) => {
+  const { width, height, depth } = dimensions;
+  const [textures, setTextures] = useState({});
+  
+  const w = Math.max(0.1, width / 100);
+  const h = Math.max(0.1, height / 100);
+  const d = Math.max(0.1, depth / 100);
+
+  useEffect(() => {
+    if (imageData?.url) {
+      const loader = new THREE.TextureLoader();
+      loader.load(imageData.url, (loadedTexture) => {
+        // 텍스처 설정
+        const newTexture = loadedTexture.clone();
+        newTexture.wrapS = THREE.ClampToEdgeWrapping;
+        newTexture.wrapT = THREE.ClampToEdgeWrapping;
+        newTexture.center.set(0.5, 0.5);
+        newTexture.rotation = (imageData.rotation || 0) * Math.PI / 180;
+        newTexture.repeat.set(imageData.scale || 1, imageData.scale || 1);
+
+        if (imageData.position) {
+          let offsetX = (imageData.position.x / (imageData.panel === 'left' || imageData.panel === 'right' ? depth : width));
+          let offsetY = (-imageData.position.y / (imageData.panel === 'top' || imageData.panel === 'bottom' ? depth : height));
+          newTexture.offset.set(offsetX, offsetY);
+        }
+
+        newTexture.needsUpdate = true;
+        setTextures({ ...textures, [imageData.panel || 'front']: newTexture });
+      });
+    }
+  }, [imageData, width, height, depth]);
+
+  const createMaterial = (face) => {
+    return new THREE.MeshStandardMaterial({
+      map: textures[face],
+      color: material === 'KRAFT' ? '#D4B492' : material === 'BLACK' ? '#2D2D2D' : '#FFFFFF',
+      roughness: 0.7,
+      metalness: 0.1,
+    });
+  };
 
   return (
-    <group ref={mesh}>
-      {/* 메인 박스 본체 */}
-      <mesh castShadow receiveShadow position={[0, 0, 0]}>
-        <boxGeometry 
-          args={[
-            Math.max(0.1, dimensions.width / 100),
-            Math.max(0.1, dimensions.height / 100),
-            Math.max(0.1, dimensions.depth / 100)
-          ]} 
-        />
-        <meshStandardMaterial 
-          color={material === 'KRAFT' ? '#D4B492' : material === 'BLACK' ? '#2D2D2D' : '#FFFFFF'}
-          roughness={0.7}
-          metalness={0.1}
-        />
+    <group>
+      {/* 앞면 */}
+      <mesh position={[0, 0, d/2]}>
+        <planeGeometry args={[w, h]} />
+        <primitive object={createMaterial('front')} />
       </mesh>
-      
-      {/* 플랩 표현 */}
-      <mesh position={[0, dimensions.height/200, 0]}>
-        <boxGeometry 
-          args={[
-            Math.max(0.05, dimensions.width / 100),
-            0.01,
-            Math.max(0.05, dimensions.depth / 100)
-          ]} 
-        />
-        <meshStandardMaterial 
-          color={material === 'KRAFT' ? '#C4A482' : material === 'BLACK' ? '#1D1D1D' : '#F0F0F0'}
-          roughness={0.7}
-        />
+
+      {/* 뒷면 */}
+      <mesh position={[0, 0, -d/2]} rotation={[0, Math.PI, 0]}>
+        <planeGeometry args={[w, h]} />
+        <primitive object={createMaterial('back')} />
+      </mesh>
+
+      {/* 왼쪽 */}
+      <mesh position={[-w/2, 0, 0]} rotation={[0, -Math.PI/2, 0]}>
+        <planeGeometry args={[d, h]} />
+        <primitive object={createMaterial('left')} />
+      </mesh>
+
+      {/* 오른쪽 */}
+      <mesh position={[w/2, 0, 0]} rotation={[0, Math.PI/2, 0]}>
+        <planeGeometry args={[d, h]} />
+        <primitive object={createMaterial('right')} />
+      </mesh>
+
+      {/* 위 */}
+      <mesh position={[0, h/2, 0]} rotation={[-Math.PI/2, 0, 0]}>
+        <planeGeometry args={[w, d]} />
+        <primitive object={createMaterial('top')} />
+      </mesh>
+
+      {/* 아래 */}
+      <mesh position={[0, -h/2, 0]} rotation={[Math.PI/2, 0, 0]}>
+        <planeGeometry args={[w, d]} />
+        <primitive object={createMaterial('bottom')} />
       </mesh>
     </group>
   );
 };
 
-// 메인 프리뷰 컴포넌트
 const CardboardBoxPreview = ({ dimensions, materialType }) => {
+  const [imageData, setImageData] = useState(null);
+
+  const handleImageMove = (movement) => {
+    if (imageData) {
+      setImageData({
+        ...imageData,
+        position: { x: movement.x, y: movement.y },
+        panel: movement.panel
+      });
+    }
+  };
+
   return (
     <div className="w-full space-y-4">
+      <ImageEditor onImageChange={setImageData} imageData={imageData} />
       <div className="flex justify-between gap-4">
         <div className="w-1/2 h-96">
           <h3 className="text-lg font-semibold mb-2">도면</h3>
-          <BoxBlueprint {...dimensions} />
+          <BoxBlueprint {...dimensions} imageData={imageData} onImageMove={handleImageMove} />
         </div>
         <div className="w-1/2 h-96">
           <h3 className="text-lg font-semibold mb-2">3D 모델</h3>
           <div className="w-full h-full bg-gray-100 rounded-lg">
-            <Canvas
-              camera={{ position: [1, 1, 1], fov: 60 }}
-              shadows
-            >
+            <Canvas camera={{ position: [2, 2, 2], fov: 50 }} shadows>
               <ambientLight intensity={0.6} />
-              <directionalLight 
-                position={[5, 5, 5]} 
-                intensity={0.8} 
-                castShadow
-                shadow-mapSize-width={1024}
-                shadow-mapSize-height={1024}
+              <directionalLight position={[5, 5, 5]} intensity={0.8} castShadow />
+              <BoxModel 
+                dimensions={dimensions} 
+                material={materialType} 
+                imageData={imageData} 
               />
-              <BoxModel dimensions={dimensions} material={materialType} />
               <OrbitControls 
                 enableZoom={true}
                 enablePan={true}
@@ -219,15 +375,6 @@ const CardboardBoxPreview = ({ dimensions, materialType }) => {
       </div>
     </div>
   );
-};
-
-CardboardBoxPreview.propTypes = {
-  dimensions: PropTypes.shape({
-    width: PropTypes.number.isRequired,
-    height: PropTypes.number.isRequired,
-    depth: PropTypes.number.isRequired,
-  }).isRequired,
-  materialType: PropTypes.string.isRequired,
 };
 
 export default CardboardBoxPreview;
