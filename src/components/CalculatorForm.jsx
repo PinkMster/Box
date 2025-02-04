@@ -4,185 +4,211 @@ import PropTypes from 'prop-types';
 import './CalculatorForm.css';
 
 const MATERIAL_SIZES = {
-  "46전지": [
-    { width: 1091, height: 788 },
-    { width: 788, height: 545 },
-    { width: 778, height: 363 },
-    { width: 697, height: 394 },
-    { width: 545, height: 394 }
-  ],
-  "국전지": [
-    { width: 939, height: 636 },
-    { width: 636, height: 469 }
-  ],
-  "하드롱": [
-    { width: 1194, height: 889 },
-    { width: 889, height: 597 },
-    { width: 889, height: 398 },
-    { width: 597, height: 444 }
-  ]
+ "46전지": [
+   { width: 1091, height: 788 },
+   { width: 788, height: 545 },
+   { width: 778, height: 363 },
+   { width: 545, height: 394 },
+   { width: 697, height: 394 }
+ ],
+ "국전지": [
+   { width: 939, height: 636 },
+   { width: 636, height: 469 }
+ ],
+ "하드롱": [
+   { width: 1194, height: 889 },
+   { width: 889, height: 597 },
+   { width: 889, height: 398 },
+   { width: 597, height: 444 }
+ ]
+};
+
+const cutCountMap = {
+ "1": { index: 0, value: "1" },
+ "2": { index: 1, value: "2" },
+ "3": { index: 2, value: "3" },
+ "T3": { index: 4, value: "3" },
+ "4": { index: 3, value: "4" }
 };
 
 function CalculatorForm({
-  setEstimate,
-  setWidth,
-  setDepth,
-  setHeight,
-  setMaterialType,
-  setMaterialSize,
-  setQuantity,
-  setCoating,
-  setBonding,
-  setPrintColor,
-  setProductionQuantity,
-  setTestPrint,
-  setMaterialCount
+ setEstimate,
+ setWidth,
+ setDepth,
+ setHeight,
+ setMaterialType,
+ setMaterialSize,
+ setQuantity,
+ setCoating,
+ setBonding,
+ setPrintColor,
+ setProductionQuantity,
+ setTestPrint,
+ setMaterialCount
 }) {
-  const [inputData, setInputData] = useState({
-    width: 0,
-    depth: 0,
-    height: 0,
-    quantity: 1,
-    bonding: "0",
-    coating: "X",
-    materialType: "",
-    materialSize: "",
-    cutCount: "1",
-    materialCount: 0.5,
-    printColor: "1",
-    testPrint: "X",
-  });
+ const [inputData, setInputData] = useState({
+   width: 0,
+   depth: 0,
+   height: 0,
+   quantity: 1,
+   bonding: "0",
+   coating: "X",
+   materialType: "",
+   materialSize: "",
+   cutCount: "1",
+   materialCount: 0.5,
+   printColor: "1",
+   testPrint: "X",
+ });
 
-  const [materialDimensions, setMaterialDimensions] = useState({ width: 0, height: 0 });
+ const [materialDimensions, setMaterialDimensions] = useState({ width: 0, height: 0 });
 
-  // 원단 크기 찾기 함수
-  const findMaterialSize = (materialSize) => {
-    if (!materialSize || !MATERIAL_SIZES[materialSize]) {
-      return { width: 0, height: 0 };
-    }
-    return MATERIAL_SIZES[materialSize][0];
-  };
+ const findMaterialSize = (materialSize, cutCount) => {
+   if (!materialSize || !MATERIAL_SIZES[materialSize]) {
+     return { width: 0, height: 0 };
+   }
+   
+   const { index } = cutCountMap[cutCount] || { index: 0 };
+   return MATERIAL_SIZES[materialSize][index] || MATERIAL_SIZES[materialSize][0];
+ };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setInputData(prev => ({ ...prev, [name]: value }));
+ const handleChange = (e) => {
+   const { name, value } = e.target;
+   
+   // cutCount 값 변환
+   const actualValue = name === 'cutCount' ? 
+     cutCountMap[value]?.value || value : 
+     value;
+   
+   // 입력 데이터 업데이트
+   setInputData(prev => ({ ...prev, [name]: value }));
 
-    // 원단 크기 업데이트
-    if (name === 'materialSize') {
-      const newSize = findMaterialSize(value);
-      setMaterialDimensions(newSize);
-    }
+   // 원단 크기 업데이트
+   if (name === 'materialSize' || name === 'cutCount') {
+     const newSize = findMaterialSize(
+       name === 'materialSize' ? value : inputData.materialSize,
+       name === 'cutCount' ? value : inputData.cutCount
+     );
+     setMaterialDimensions(newSize);
+   }
 
-    // 상위 컴포넌트 상태 업데이트
-    switch (name) {
-      case 'materialCount':
-        setMaterialCount(Number(value));
-        break;
-      case 'quantity':
-        setQuantity(Number(value));
-        break;
-      case 'coating':
-        setCoating(value);
-        break;
-      case 'bonding':
-        setBonding(value);
-        break;
-      case 'printColor':
-        setPrintColor(value);
-        break;
-      case 'testPrint':
-        setTestPrint(value);
-        break;
-      case 'materialType':
-        setMaterialType(value);
-        break;
-      case 'materialSize':
-        setMaterialSize(value);
-        break;
-      case 'width':
-        setWidth(Number(value));
-        break;
-      case 'depth':
-        setDepth(Number(value));
-        break;
-      case 'height':
-        setHeight(Number(value));
-        break;
-    }
+   // 상태 업데이트
+   switch (name) {
+     case 'materialCount':
+       setMaterialCount(Number(value));
+       break;
+     case 'quantity':
+       setQuantity(Number(value));
+       break;
+     case 'coating':
+       setCoating(value);
+       break;
+     case 'bonding':
+       setBonding(value);
+       break;
+     case 'printColor':
+       setPrintColor(value);
+       break;
+     case 'testPrint':
+       setTestPrint(value);
+       break;
+     case 'materialType':
+       setMaterialType(value);
+       break;
+     case 'materialSize':
+       setMaterialSize(value);
+       break;
+     case 'width':
+       setWidth(Number(value));
+       break;
+     case 'depth':
+       setDepth(Number(value));
+       break;
+     case 'height':
+       setHeight(Number(value));
+       break;
+   }
 
-    // 제작수량 계산 및 업데이트
-    const newProductionQuantity = Number(value) * 
-      Number(inputData.cutCount) * 
-      (name === 'materialCount' ? Number(value) : Number(inputData.materialCount)) * 
-      500;
+   // 제작수량 계산 및 업데이트
+   const currentCutCount = name === 'cutCount' ? value : inputData.cutCount;
+   const currentQuantity = name === 'quantity' ? value : inputData.quantity;
+   const currentMaterialCount = name === 'materialCount' ? value : inputData.materialCount;
 
-    if (isFinite(newProductionQuantity)) {
-      setProductionQuantity(newProductionQuantity);
-    }
+   const cutCountValue = cutCountMap[currentCutCount]?.value || currentCutCount;
+   const newProductionQuantity = 
+     Number(currentQuantity) * 
+     Number(cutCountValue) * 
+     Number(currentMaterialCount) * 
+     500;
 
-    // 실시간으로 견적 계산
-    calculateEstimate(name, value);
-  };
+   if (isFinite(newProductionQuantity)) {
+     setProductionQuantity(newProductionQuantity);
+   }
 
-  // 견적 계산 함수를 별도로 분리
-  const calculateEstimate = (changedName, changedValue) => {
-    // 현재 상태와 변경된 값을 합쳐서 계산
-    const currentData = {
-      ...inputData,
-      [changedName]: changedValue
-    };
+   calculateEstimate(name, actualValue);
+ };
 
-    if (!currentData.materialType || !currentData.materialSize) {
-      return;
-    }
+ const calculateEstimate = (changedName, changedValue) => {
+   const currentData = {
+     ...inputData,
+     [changedName]: changedValue
+   };
 
-    const productionQuantity = 
-      Number(currentData.quantity) * 
-      Number(currentData.cutCount) * 
-      Number(currentData.materialCount) * 
-      500;
+   if (!currentData.materialType || !currentData.materialSize) {
+     return;
+   }
 
-    if (productionQuantity > 0) {
-      // 견적 업데이트
-      setProductionQuantity(productionQuantity);
-    }
-  };
+   const cutCountValue = cutCountMap[currentData.cutCount]?.value || currentData.cutCount;
+   const productionQuantity = 
+     Number(currentData.quantity) * 
+     Number(cutCountValue) * 
+     Number(currentData.materialCount) * 
+     500;
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-  
-    if (!inputData.materialType) {
-      alert("원단 종류를 선택해주세요.");
-      return;
-    }
-    if (!inputData.materialSize) {
-      alert("규격을 선택해주세요.");
-      return;
-    }
-  
-    const productionQuantity = 
-      Number(inputData.quantity) * 
-      Number(inputData.cutCount) * 
-      Number(inputData.materialCount) * 
-      500;
-  
-    setProductionQuantity(productionQuantity);
-    
-    const estimate = Math.round(
-      ((calculateMaterialCost()) / productionQuantity) * 1.4
-    );
-  
-    setEstimate(estimate);
-  };
+   if (productionQuantity > 0) {
+     setProductionQuantity(productionQuantity);
+   }
+ };
 
-  const calculateProductionQuantity = () => {
-    const result = Number(inputData.quantity) * 
-           Number(inputData.cutCount) * 
-           Number(inputData.materialCount) * 
-           500;
-    return isFinite(result) ? result : 0;
-  };
+ const handleSubmit = (e) => {
+   e.preventDefault();
+ 
+   if (!inputData.materialType) {
+     alert("원단 종류를 선택해주세요.");
+     return;
+   }
+   if (!inputData.materialSize) {
+     alert("규격을 선택해주세요.");
+     return;
+   }
+ 
+   const cutCountValue = cutCountMap[inputData.cutCount]?.value || inputData.cutCount;
+   const productionQuantity = 
+     Number(inputData.quantity) * 
+     Number(cutCountValue) * 
+     Number(inputData.materialCount) * 
+     500;
+ 
+   setProductionQuantity(productionQuantity);
+   
+   const estimate = Math.round(
+     ((calculateMaterialCost()) / productionQuantity) * 1.4
+   );
+ 
+   setEstimate(estimate);
+ };
 
+ const calculateProductionQuantity = () => {
+   const currentCutCount = inputData.cutCount;
+   const cutCountValue = cutCountMap[currentCutCount]?.value || currentCutCount;
+   
+   const result = Number(inputData.quantity) * 
+     Number(cutCountValue) * 
+     Number(inputData.materialCount) * 
+     500;
+     
+   return isFinite(result) ? result : 0;
+ };
   return (
     <form onSubmit={handleSubmit} className="calculator-form">
       <div className="form-row">
@@ -305,7 +331,7 @@ function CalculatorForm({
             <option value="1">1</option>
             <option value="2">2</option>
             <option value="3">3</option>
-            <option value="3">T3</option>
+            <option value="T3">T3</option>
             <option value="4">4</option>
           </select>
         </div>
