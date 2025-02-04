@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
@@ -16,8 +16,7 @@ const ImageEditor = ({ onImageChange, imageData }) => {
           url: event.target.result,
           rotation: 0,
           scale: 1,
-          position: { x: 0, y: 0 },
-          panel: 'front'
+          position: { x: 0, y: 0 }
         });
       };
       reader.readAsDataURL(file);
@@ -92,11 +91,11 @@ const ImageEditor = ({ onImageChange, imageData }) => {
   );
 };
 
-const BoxBlueprint = ({ width, height, depth, imageData, onImageMove }) => {
+const BoxBlueprint = ({ width, height, depth, imageData, onImageMove, onUpdate }) => {
   const svgRef = useRef(null);
+  const canvasRef = useRef(document.createElement('canvas'));
   const isDragging = useRef(false);
   const startPos = useRef({ x: 0, y: 0 });
-  const currentPanel = useRef(null);
 
   const maxSize = Math.max(width, height * 3 + depth * 2);
   const scale = Math.min(1, 500 / maxSize);
@@ -113,41 +112,85 @@ const BoxBlueprint = ({ width, height, depth, imageData, onImageMove }) => {
   const baseX = startX + d;
   const baseY = startY + d;
 
-  // 각 패널의 위치와 크기 정의
-  const panels = {
-    front: { x: baseX, y: baseY, width: w, height: h },
-    back: { x: baseX, y: baseY + h + d, width: w, height: h },
-    left: { x: startX, y: baseY, width: d, height: h },
-    right: { x: baseX + w, y: baseY, width: d, height: h },
-    top: { x: baseX, y: startY, width: w, height: d },
-    bottom: { x: baseX, y: baseY + h, width: w, height: d }
+  // 패널 정의
+  const panels = useMemo(() => [
+    {
+      path: `M ${baseX},${baseY} h ${w} v ${h} h -${w} z`,
+      id: 'front',
+      label: '정면',
+      centerX: baseX + w/2,
+      centerY: baseY + h/2
+    },
+    {
+      path: `M ${baseX},${baseY + h + d} h ${w} v ${h} h -${w} z`,
+      id: 'back',
+      label: '후면',
+      centerX: baseX + w/2,
+      centerY: baseY + h + d + h/2
+    },
+    {
+      path: `M ${startX},${baseY} h ${d} v ${h} h -${d} z`,
+      id: 'left',
+      label: '좌',
+      centerX: startX + d/2,
+      centerY: baseY + h/2
+    },
+    {
+      path: `M ${baseX + w},${baseY} h ${d} v ${h} h -${d} z`,
+      id: 'right',
+      label: '우',
+      centerX: baseX + w + d/2,
+      centerY: baseY + h/2
+    },
+    {
+      path: `M ${baseX},${startY} h ${w} v ${d} h -${w} z`,
+      id: 'top',
+      label: '상',
+      centerX: baseX + w/2,
+      centerY: startY + d/2
+    },
+    {
+      path: `M ${baseX},${baseY + h} h ${w} v ${d} h -${w} z`,
+      id: 'bottom',
+      label: '하',
+      centerX: baseX + w/2,
+      centerY: baseY + h + d/2
+    }
+  ], [baseX, baseY, w, h, d, startX, startY]);
+
+  const captureBlueprint = () => {
+    const svg = svgRef.current;
+    if (!svg) return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const img = new Image();
+    
+    canvas.width = totalWidth;
+    canvas.height = totalHeight;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0);
+      onUpdate(canvas);
+    };
+
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
   };
 
-  // 특정 좌표가 어느 패널 안에 있는지 확인하는 함수
-  const getPanelAtPosition = (x, y) => {
-    return Object.entries(panels).find(([_, panel]) => {
-      return x >= panel.x && 
-             x <= panel.x + panel.width && 
-             y >= panel.y && 
-             y <= panel.y + panel.height;
-    });
-  };
+  useEffect(() => {
+    captureBlueprint();
+  }, [imageData, width, height, depth]);
 
   const handleMouseDown = (e) => {
-    if (!imageData) return;
+    if (!imageData?.url) return;
     
     const svg = svgRef.current;
     const pt = svg.createSVGPoint();
     pt.x = e.clientX;
     pt.y = e.clientY;
     const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
-    
-    // 현재 위치의 패널 확인
-    const panelInfo = getPanelAtPosition(svgP.x, svgP.y);
-    if (!panelInfo) return;
-
-    const [panelName, panel] = panelInfo;
-    currentPanel.current = { name: panelName, ...panel };
     
     isDragging.current = true;
     startPos.current = {
@@ -157,7 +200,7 @@ const BoxBlueprint = ({ width, height, depth, imageData, onImageMove }) => {
   };
 
   const handleMouseMove = (e) => {
-    if (!isDragging.current || !imageData || !currentPanel.current) return;
+    if (!isDragging.current || !imageData?.url) return;
 
     const svg = svgRef.current;
     const pt = svg.createSVGPoint();
@@ -165,26 +208,14 @@ const BoxBlueprint = ({ width, height, depth, imageData, onImageMove }) => {
     pt.y = e.clientY;
     const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
     
-    // 현재 마우스 위치의 패널 확인
-    const newPanelInfo = getPanelAtPosition(svgP.x, svgP.y);
-    if (!newPanelInfo) return;
-
-    const [newPanelName, newPanel] = newPanelInfo;
-    
-    // 패널 내에서의 상대 위치 계산
-    const relativeX = svgP.x - newPanel.x;
-    const relativeY = svgP.y - newPanel.y;
-
     onImageMove({
-      x: relativeX,
-      y: relativeY,
-      panel: newPanelName
+      x: svgP.x - startPos.current.x,
+      y: svgP.y - startPos.current.y
     });
   };
 
   const handleMouseUp = () => {
     isDragging.current = false;
-    currentPanel.current = null;
   };
 
   return (
@@ -199,133 +230,147 @@ const BoxBlueprint = ({ width, height, depth, imageData, onImageMove }) => {
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
       >
-        {/* 각 패널에 대한 클리핑 패스 정의 */}
         <defs>
-          {Object.entries(panels).map(([key, panel]) => (
-            <clipPath key={key} id={`boxClip-${key}`}>
-              <rect x={panel.x} y={panel.y} width={panel.width} height={panel.height} />
+          {panels.map(panel => (
+            <clipPath key={panel.id} id={`clip-${panel.id}`}>
+              <path d={panel.path} />
             </clipPath>
           ))}
         </defs>
 
-        {/* 이미지 렌더링 */}
-        {imageData?.url && imageData.panel && (
-          <g clipPath={`url(#boxClip-${imageData.panel})`}>
-            <image
-              href={imageData.url}
-              x={panels[imageData.panel].x + imageData.position.x}
-              y={panels[imageData.panel].y + imageData.position.y}
-              width={panels[imageData.panel].width}
-              height={panels[imageData.panel].height}
-              transform={`
-                rotate(${imageData.rotation || 0} 
-                  ${panels[imageData.panel].x + panels[imageData.panel].width/2} 
-                  ${panels[imageData.panel].y + panels[imageData.panel].height/2})
-                scale(${imageData.scale || 1})
-              `}
-              preserveAspectRatio="xMidYMid slice"
-            />
+        {imageData?.url && (
+          <g>
+            {panels.map(panel => (
+              <g key={panel.id} clipPath={`url(#clip-${panel.id})`}>
+                <image
+                  href={imageData.url}
+                  x={imageData.position?.x || 0}
+                  y={imageData.position?.y || 0}
+                  width={totalWidth}
+                  height={totalHeight}
+                  transform={`
+                    rotate(${imageData.rotation || 0} 
+                      ${totalWidth / 2} 
+                      ${totalHeight / 2}
+                    ) 
+                    scale(${imageData.scale || 1})
+                  `}
+                  preserveAspectRatio="xMidYMid slice"
+                />
+              </g>
+            ))}
           </g>
         )}
 
-        {/* 박스 외곽선 */}
-        <rect x={baseX} y={baseY} width={w} height={h} fill="none" stroke="black" strokeWidth="1" />
-        <rect x={baseX} y={startY} width={w} height={d} fill="none" stroke="black" strokeWidth="1" />
-        <rect x={baseX} y={baseY + h} width={w} height={d} fill="none" stroke="black" strokeWidth="1" />
-        <rect x={startX} y={baseY} width={d} height={h} fill="none" stroke="black" strokeWidth="1" />
-        <rect x={baseX + w} y={baseY} width={d} height={h} fill="none" stroke="black" strokeWidth="1" />
-        <rect x={baseX} y={baseY + h + d} width={w} height={h} fill="none" stroke="black" strokeWidth="1" />
+        {panels.map(panel => (
+          <path
+            key={panel.id}
+            d={panel.path}
+            fill="none"
+            stroke="black"
+            strokeWidth="1"
+          />
+        ))}
 
-        {/* 접는 선 */}
         <g stroke="black" strokeDasharray="5,5" strokeWidth="0.5">
-          <line x1={baseX} y1={startY} x2={baseX} y2={baseY + h + d * 2} />
-          <line x1={baseX + w} y1={startY} x2={baseX + w} y2={baseY + h + d * 2} />
-          <line x1={startX} y1={baseY} x2={baseX + w + d} y2={baseY} />
-          <line x1={startX} y1={baseY + h} x2={baseX + w + d} y2={baseY + h} />
+          <line x1={baseX} y1={baseY} x2={baseX + w} y2={baseY} />
+          <line x1={baseX} y1={baseY + h} x2={baseX + w} y2={baseY + h} />
+          <line x1={baseX} y1={baseY} x2={baseX} y2={baseY + h} />
+          <line x1={baseX + w} y1={baseY} x2={baseX + w} y2={baseY + h} />
           <line x1={baseX} y1={baseY + h + d} x2={baseX + w} y2={baseY + h + d} />
         </g>
+
+        {panels.map(panel => (
+          <text
+            key={`label-${panel.id}`}
+            x={panel.centerX}
+            y={panel.centerY}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fontSize="12"
+            fill="#666"
+          >
+            {panel.label}
+          </text>
+        ))}
       </svg>
     </div>
   );
 };
 
-const BoxModel = ({ dimensions, material, imageData }) => {
+const BoxModel = ({ dimensions, materialType, blueprintTexture }) => {
   const { width, height, depth } = dimensions;
-  const [textures, setTextures] = useState({});
-  
+  const [materials, setMaterials] = useState({});
+  const materialsRef = useRef({});
+
   const w = Math.max(0.1, width / 100);
   const h = Math.max(0.1, height / 100);
   const d = Math.max(0.1, depth / 100);
 
-  useEffect(() => {
-    if (imageData?.url) {
-      const loader = new THREE.TextureLoader();
-      loader.load(imageData.url, (loadedTexture) => {
-        // 텍스처 설정
-        const newTexture = loadedTexture.clone();
-        newTexture.wrapS = THREE.ClampToEdgeWrapping;
-        newTexture.wrapT = THREE.ClampToEdgeWrapping;
-        newTexture.center.set(0.5, 0.5);
-        newTexture.rotation = (imageData.rotation || 0) * Math.PI / 180;
-        newTexture.repeat.set(imageData.scale || 1, imageData.scale || 1);
-
-        if (imageData.position) {
-          let offsetX = (imageData.position.x / (imageData.panel === 'left' || imageData.panel === 'right' ? depth : width));
-          let offsetY = (-imageData.position.y / (imageData.panel === 'top' || imageData.panel === 'bottom' ? depth : height));
-          newTexture.offset.set(offsetX, offsetY);
-        }
-
-        newTexture.needsUpdate = true;
-        setTextures({ ...textures, [imageData.panel || 'front']: newTexture });
-      });
+  const getBaseColor = () => {
+    switch (materialType) {
+      case 'KRAFT':
+        return '#D4B492';
+      case 'BLACK':
+        return '#2D2D2D';
+      default:
+        return '#FFFFFF';
     }
-  }, [imageData, width, height, depth]);
+  };
 
-  const createMaterial = (face) => {
-    return new THREE.MeshStandardMaterial({
-      map: textures[face],
-      color: material === 'KRAFT' ? '#D4B492' : material === 'BLACK' ? '#2D2D2D' : '#FFFFFF',
+  useEffect(() => {
+    if (!blueprintTexture) return;
+
+    const texture = new THREE.CanvasTexture(blueprintTexture);
+    texture.needsUpdate = true;
+
+    // 기본 재질 설정
+    const newMaterial = new THREE.MeshStandardMaterial({
+      map: texture,
+      color: getBaseColor(),
       roughness: 0.7,
       metalness: 0.1,
+      side: THREE.DoubleSide
     });
-  };
+
+    setMaterials({ main: newMaterial });
+
+    return () => {
+      texture.dispose();
+      newMaterial.dispose();
+    };
+  }, [blueprintTexture, materialType]);
 
   return (
     <group>
-      {/* 앞면 */}
       <mesh position={[0, 0, d/2]}>
         <planeGeometry args={[w, h]} />
-        <primitive object={createMaterial('front')} />
+        {materials.main && <primitive object={materials.main} attach="material" />}
       </mesh>
 
-      {/* 뒷면 */}
       <mesh position={[0, 0, -d/2]} rotation={[0, Math.PI, 0]}>
         <planeGeometry args={[w, h]} />
-        <primitive object={createMaterial('back')} />
+        {materials.main && <primitive object={materials.main} attach="material" />}
       </mesh>
 
-      {/* 왼쪽 */}
       <mesh position={[-w/2, 0, 0]} rotation={[0, -Math.PI/2, 0]}>
         <planeGeometry args={[d, h]} />
-        <primitive object={createMaterial('left')} />
+        {materials.main && <primitive object={materials.main} attach="material" />}
       </mesh>
 
-      {/* 오른쪽 */}
       <mesh position={[w/2, 0, 0]} rotation={[0, Math.PI/2, 0]}>
         <planeGeometry args={[d, h]} />
-        <primitive object={createMaterial('right')} />
+        {materials.main && <primitive object={materials.main} attach="material" />}
       </mesh>
 
-      {/* 위 */}
       <mesh position={[0, h/2, 0]} rotation={[-Math.PI/2, 0, 0]}>
         <planeGeometry args={[w, d]} />
-        <primitive object={createMaterial('top')} />
+        {materials.main && <primitive object={materials.main} attach="material" />}
       </mesh>
 
-      {/* 아래 */}
       <mesh position={[0, -h/2, 0]} rotation={[Math.PI/2, 0, 0]}>
         <planeGeometry args={[w, d]} />
-        <primitive object={createMaterial('bottom')} />
+        {materials.main && <primitive object={materials.main} attach="material" />}
       </mesh>
     </group>
   );
@@ -333,24 +378,40 @@ const BoxModel = ({ dimensions, material, imageData }) => {
 
 const CardboardBoxPreview = ({ dimensions, materialType }) => {
   const [imageData, setImageData] = useState(null);
+  const [blueprintTexture, setBlueprintTexture] = useState(null);
 
-  const handleImageMove = (movement) => {
+  const handleImageChange = (newImageData) => {
+    setImageData({
+      ...newImageData,
+      position: { x: 0, y: 0 }
+    });
+  };
+
+  const handleImageMove = (newPosition) => {
     if (imageData) {
       setImageData({
         ...imageData,
-        position: { x: movement.x, y: movement.y },
-        panel: movement.panel
+        position: newPosition
       });
     }
   };
 
+  const handleBlueprintUpdate = (canvas) => {
+    setBlueprintTexture(canvas);
+  };
+
   return (
     <div className="w-full space-y-4">
-      <ImageEditor onImageChange={setImageData} imageData={imageData} />
+      <ImageEditor onImageChange={handleImageChange} imageData={imageData} />
       <div className="flex justify-between gap-4">
         <div className="w-1/2 h-96">
           <h3 className="text-lg font-semibold mb-2">도면</h3>
-          <BoxBlueprint {...dimensions} imageData={imageData} onImageMove={handleImageMove} />
+          <BoxBlueprint 
+            {...dimensions} 
+            imageData={imageData}
+            onImageMove={handleImageMove}
+            onUpdate={handleBlueprintUpdate}
+          />
         </div>
         <div className="w-1/2 h-96">
           <h3 className="text-lg font-semibold mb-2">3D 모델</h3>
@@ -360,8 +421,8 @@ const CardboardBoxPreview = ({ dimensions, materialType }) => {
               <directionalLight position={[5, 5, 5]} intensity={0.8} castShadow />
               <BoxModel 
                 dimensions={dimensions} 
-                material={materialType} 
-                imageData={imageData} 
+                materialType={materialType} 
+                blueprintTexture={blueprintTexture}
               />
               <OrbitControls 
                 enableZoom={true}
@@ -375,6 +436,55 @@ const CardboardBoxPreview = ({ dimensions, materialType }) => {
       </div>
     </div>
   );
+};
+
+CardboardBoxPreview.propTypes = {
+  dimensions: PropTypes.shape({
+    width: PropTypes.number.isRequired,
+    height: PropTypes.number.isRequired,
+    depth: PropTypes.number.isRequired,
+  }).isRequired,
+  materialType: PropTypes.oneOf(['WHITE', 'BLACK', 'KRAFT']).isRequired,
+};
+
+BoxBlueprint.propTypes = {
+  width: PropTypes.number.isRequired,
+  height: PropTypes.number.isRequired,
+  depth: PropTypes.number.isRequired,
+  imageData: PropTypes.shape({
+    url: PropTypes.string,
+    rotation: PropTypes.number,
+    scale: PropTypes.number,
+    position: PropTypes.shape({
+      x: PropTypes.number,
+      y: PropTypes.number,
+    }),
+  }),
+  onImageMove: PropTypes.func.isRequired,
+  onUpdate: PropTypes.func.isRequired,
+};
+
+BoxModel.propTypes = {
+  dimensions: PropTypes.shape({
+    width: PropTypes.number.isRequired,
+    height: PropTypes.number.isRequired,
+    depth: PropTypes.number.isRequired,
+  }).isRequired,
+  materialType: PropTypes.string.isRequired,
+  blueprintTexture: PropTypes.instanceOf(HTMLCanvasElement),
+};
+
+ImageEditor.propTypes = {
+  onImageChange: PropTypes.func.isRequired,
+  imageData: PropTypes.shape({
+    url: PropTypes.string,
+    rotation: PropTypes.number,
+    scale: PropTypes.number,
+    position: PropTypes.shape({
+      x: PropTypes.number,
+      y: PropTypes.number,
+    }),
+  }),
 };
 
 export default CardboardBoxPreview;
