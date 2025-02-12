@@ -52,7 +52,7 @@ function Result({
     });
 
     // 연수와 판수를 고려한 가격 계산
-    const cost = basePrice * validMaterialCount * validQuantity;
+    const cost = basePrice * validMaterialCount;// * validQuantity;
     return isNaN(cost) ? 0 : cost;
   };
 

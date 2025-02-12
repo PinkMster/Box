@@ -80,7 +80,7 @@ const cutCountMap = {
   "1": { index: 0, value: "1", label: "1" },
   "2": { index: 1, value: "2", label: "2" },
   "3": { index: 2, value: "3", label: "3" },
-  "T3": { index: 4, value: "3", label: "T3" },
+  "T3":{ index: 4, value: "3", label: "T3"},
   "4": { index: 3, value: "4", label: "4" }
 };
 
@@ -206,9 +206,8 @@ function CalculatorForm({
     if (!data.materialType || !data.materialSize) {
       return 0;
     }
-
     const basePrice = PRICE_TABLE[data.materialSize]?.[data.materialType] || 0;
-    return basePrice * Number(data.materialCount) * Number(data.quantity);
+    return basePrice * Number(data.materialCount); //* Number(data.quantity);
   };
 
   // 인쇄비 계산
